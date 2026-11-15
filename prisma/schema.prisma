@@ -1,0 +1,127 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model School {
+  id        Int        @id @default(autoincrement())
+  nom       String
+  adresse   String?
+  users     User[]
+  classes   Classe[]
+  eleves    Eleve[]
+  paiements Paiement[]
+  absences  Absence[]
+  seances   Seance[]
+  annonces  Annonce[]
+}
+
+model User {
+  id          Int      @id @default(autoincrement())
+  email       String   @unique
+  password    String
+  nom         String
+  prenom      String
+  role        String
+  schoolId    Int
+  school      School   @relation(fields: [schoolId], references: [id])
+  enfants     Eleve[]  @relation("ParentEleves")
+  profilEleve Eleve?   @relation("CompteEleve")
+  seances     Seance[]
+}
+
+model Classe {
+  id            Int      @id @default(autoincrement())
+  nom           String
+  niveau        String
+  capaciteMax   Int
+  anneeScolaire String
+  schoolId      Int
+  school        School   @relation(fields: [schoolId], references: [id])
+  eleves        Eleve[]
+  seances       Seance[]
+}
+
+model Eleve {
+  id            Int        @id @default(autoincrement())
+  matricule     String     @unique
+  nom           String
+  prenom        String
+  anneeScolaire String
+  schoolId      Int
+  school        School     @relation(fields: [schoolId], references: [id])
+  classeId      Int
+  classe        Classe     @relation(fields: [classeId], references: [id])
+  parentId      Int?
+  parent        User?      @relation("ParentEleves", fields: [parentId], references: [id])
+  userId        Int?       @unique
+  compte        User?      @relation("CompteEleve", fields: [userId], references: [id])
+  notes         Note[]
+  absences      Absence[]
+  paiements     Paiement[]
+}
+
+model Note {
+  id            Int    @id @default(autoincrement())
+  matiere       String
+  valeur        Float
+  coefficient   Float
+  anneeScolaire String
+  eleveId       Int
+  eleve         Eleve  @relation(fields: [eleveId], references: [id])
+}
+
+model Absence {
+  id            Int      @id @default(autoincrement())
+  date          DateTime
+  justifiee     Boolean  @default(false)
+  anneeScolaire String
+  eleveId       Int
+  eleve         Eleve    @relation(fields: [eleveId], references: [id])
+  schoolId      Int
+  school        School   @relation(fields: [schoolId], references: [id])
+}
+
+model Paiement {
+  id            Int       @id @default(autoincrement())
+  montantTotal  Float
+  montantPaye   Float
+  statut        String
+  modePaiement  String?
+  datePaiement  DateTime?
+  anneeScolaire String
+  schoolId      Int
+  school        School    @relation(fields: [schoolId], references: [id])
+  eleveId       Int
+  eleve         Eleve     @relation(fields: [eleveId], references: [id])
+}
+
+model Seance {
+  id            Int     @id @default(autoincrement())
+  jour          String
+  heureDebut    String
+  heureFin      String
+  matiere       String
+  salle         String?
+  anneeScolaire String
+  classeId      Int
+  classe        Classe  @relation(fields: [classeId], references: [id])
+  enseignantId  Int?
+  enseignant    User?   @relation(fields: [enseignantId], references: [id])
+  schoolId      Int
+  school        School  @relation(fields: [schoolId], references: [id])
+}
+
+model Annonce {
+  id        Int      @id @default(autoincrement())
+  titre     String
+  contenu   String
+  cible     String   @default("TOUS")
+  createdAt DateTime @default(now())
+  schoolId  Int
+  school    School   @relation(fields: [schoolId], references: [id])
+}
