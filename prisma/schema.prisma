@@ -66,19 +66,23 @@ model Eleve {
 }
 
 model Note {
-  id            Int    @id @default(autoincrement())
-  matiere       String
-  valeur        Float
-  coefficient   Float
-  anneeScolaire String
-  eleveId       Int
-  eleve         Eleve  @relation(fields: [eleveId], references: [id])
+  id             Int      @id @default(autoincrement())
+  matiere        String
+  valeur         Float
+  coefficient    Float
+  date           DateTime @default(now())
+  typeEvaluation String   @default("Devoir")
+  anneeScolaire  String
+  eleveId        Int
+  eleve          Eleve    @relation(fields: [eleveId], references: [id])
 }
 
 model Absence {
   id            Int      @id @default(autoincrement())
   date          DateTime
   justifiee     Boolean  @default(false)
+  matiere       String?
+  motif         String?
   anneeScolaire String
   eleveId       Int
   eleve         Eleve    @relation(fields: [eleveId], references: [id])

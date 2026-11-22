@@ -1,9 +1,14 @@
 import axios from 'axios';
 
-// En local : http://localhost:5000/api
-// En ligne : définir VITE_API_URL dans l'hébergeur du frontend
+const configuredApiUrl = import.meta.env.VITE_API_URL?.trim();
+const apiRoot = (configuredApiUrl || (import.meta.env.PROD ? '' : 'http://localhost:5000'))
+  .replace(/\/+$/, '');
+const baseURL = apiRoot
+  ? (/\/api$/i.test(apiRoot) ? apiRoot : `${apiRoot}/api`)
+  : '/api';
+
 const API = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+  baseURL
 });
 
 // Ajoute automatiquement le token JWT à chaque requête

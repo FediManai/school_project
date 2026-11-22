@@ -1,16 +1,16 @@
 {
-  "name": "school_project",
+  "name": "classly-backend",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
   "scripts": {
-  "start": "node src/server.js",
-  "dev": "node --watch src/server.js",
-  "seed": "node prisma/seed.js",
-  "seed:demo": "node prisma/seed-demo.js",
-  "postinstall": "prisma generate",
-  "build": "prisma generate && prisma db push"
-},
+    "start": "node src/server.js",
+    "dev": "node --watch-path=src --watch-path=.env src/server.js",
+    "db:test": "node test-db.js",
+    "seed": "node prisma/seed.js",
+    "seed:demo": "node prisma/seed-demo.js",
+    "build": "node --check src/server.js && node --check src/supabaseAdmin.js && node --check src/controllers/biController.js && npm --prefix client install --include=dev && npm --prefix client run build"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
@@ -20,6 +20,8 @@
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
+    "@supabase/ssr": "^0.12.7",
+    "@supabase/supabase-js": "^2.119.2",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
     "express": "^5.3.0",

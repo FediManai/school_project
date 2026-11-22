@@ -7,6 +7,9 @@
   --border: #e2e8f0;
   --accent: #315fe9;
   --accent-hover: #244bc5;
+  --status-success: #047857;
+  --status-danger: #b91c1c;
+  --status-warning: #b45309;
   color: var(--text-primary);
   background:
     radial-gradient(ellipse at 92% 0%, rgba(87, 124, 255, 0.06), transparent 30%),
@@ -24,6 +27,9 @@
   --border: #2a3850;
   --accent: #7897ff;
   --accent-hover: #91a9ff;
+  --status-success: #6ee7b7;
+  --status-danger: #fca5a5;
+  --status-warning: #fcd34d;
   color-scheme: dark;
 }
 
@@ -80,6 +86,56 @@ body.theme-dark-body {
 .school-app table {
   border-radius: 10px;
   overflow: hidden;
+}
+
+.student-report-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.student-report-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+
+.print-button {
+  min-height: 38px;
+  padding: 0 13px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text-primary);
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.print-button:hover {
+  border-color: var(--accent);
+}
+
+.student-report-table {
+  overflow-x: auto;
+}
+
+.grade-success {
+  color: var(--status-success) !important;
+}
+
+.grade-recovery {
+  color: var(--status-danger) !important;
+}
+
+.timetable-teacher {
+  color: var(--text-muted);
+}
+
+.theme-dark .timetable-cell:not(.timetable-cell-empty) {
+  background: var(--surface-muted) !important;
+  color: var(--text-primary);
 }
 
 .school-form-group {
@@ -194,8 +250,44 @@ body.theme-dark-body {
   color: #315fe9;
 }
 
-.theme-dark .brand-light {
-  color: #91a9ff;
+.brand-badge,
+.footer-credit {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+  color: var(--text-muted);
+  font-size: 10px;
+  line-height: 1;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  padding: 5px 7px;
+  white-space: nowrap;
+}
+
+.brand-badge {
+  margin-left: 2px;
+}
+
+.app-brand-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.app-footer {
+  margin-top: 2.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 11px;
+  text-align: center;
+}
+
+.app-footer .footer-credit {
+  margin-left: 5px;
 }
 
 .login-layout {
@@ -458,6 +550,10 @@ body.theme-dark-body {
   padding: 0 6px;
 }
 
+.login-footer .footer-credit {
+  padding: 5px 7px;
+}
+
 @media (max-width: 820px) {
   .login-layout {
     grid-template-columns: 1fr;
@@ -518,5 +614,66 @@ body.theme-dark-body {
 
   .summary-stats {
     flex-wrap: wrap;
+  }
+}
+
+@page {
+  size: A4;
+  margin: 14mm;
+}
+
+@media print {
+  body,
+  body.theme-dark-body {
+    background: #fff !important;
+    color: #111827 !important;
+  }
+
+  .school-app {
+    --surface: #fff;
+    --surface-muted: #f3f4f6;
+    --text-primary: #111827;
+    --text-muted: #374151;
+    --border: #9ca3af;
+    --status-success: #047857;
+    --status-danger: #b91c1c;
+    --status-warning: #92400e;
+    max-width: none !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+    color: #111827 !important;
+  }
+
+  .app-header,
+  .app-nav,
+  .print-hide {
+    display: none !important;
+  }
+
+  .student-report-summary > div {
+    border: 1px solid #6b7280 !important;
+    border-radius: 0 !important;
+    background: #fff !important;
+    box-shadow: none !important;
+    break-inside: avoid;
+  }
+
+  .student-report table {
+    width: 100%;
+    border-collapse: collapse !important;
+  }
+
+  .student-report th,
+  .student-report td {
+    border: 1px solid #6b7280 !important;
+    background: #fff !important;
+    color: #111827 !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .student-report tr {
+    break-inside: avoid;
   }
 }

@@ -3,10 +3,10 @@ import API from '../services/api';
 import { card, th, td } from './viewStyles';
 
 // ---------- Styles et petits composants partagés ----------
-const bouton = { background: '#2563eb', color: 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: 4, cursor: 'pointer' };
+const bouton = { background: 'var(--accent)', color: 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: 4, cursor: 'pointer' };
 const select = { padding: '0.5rem', borderRadius: 4, border: '1px solid var(--border)', minWidth: 220, background: 'var(--surface)', color: 'var(--text-primary)' };
 
-export function Kpi({ titre, valeur, couleur = '#2563eb' }) {
+export function Kpi({ titre, valeur, couleur = 'var(--accent)' }) {
   return (
     <div style={{ ...card, flex: '1 1 180px' }}>
       <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{titre}</div>
@@ -25,6 +25,23 @@ export function Section({ titre, children }) {
 }
 
 const formatDate = (d) => (d ? new Date(d).toLocaleDateString('fr-FR') : '—');
+const slugEmail = (value) => value
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .toLowerCase()
+  .replace(/[^a-z0-9]+/g, '.')
+  .replace(/^\.+|\.+$/g, '');
+const messageErreurApi = (error, fallback) => {
+  const data = error.response?.data;
+  const details = [
+    typeof data?.error === 'string' ? data.error : data?.message,
+    data?.context && `Étape : ${data.context}`,
+    data?.code && `Code : ${data.code}`,
+    data?.details,
+    data?.hint && `Piste : ${data.hint}`
+  ].filter(Boolean);
+  return details.length > 0 ? details.join(' — ') : error.message || fallback;
+};
 
 // ---------- Emploi du temps (grille de la semaine) ----------
 const JOURS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
@@ -56,7 +73,7 @@ export function Timetable({ classeId }) {
   const resultatClasse = resultat?.classeId === String(classeId) ? resultat : null;
   const data = resultatClasse?.data;
   const erreur = resultatClasse?.erreur;
-  if (erreur) return <p style={{ color: '#b91c1c' }}>{erreur}</p>;
+  if (erreur) return <p style={{ color: 'var(--status-danger)' }}>{erreur}</p>;
   if (!data) return <p>Chargement de l'emploi du temps...</p>;
   if (data.seances.length === 0) return <p>Aucune séance programmée pour cette classe.</p>;
 
@@ -82,11 +99,15 @@ export function Timetable({ classeId }) {
                 {jours.map((j) => {
                   const s = data.seances.find((x) => x.jour === j && x.heureDebut === debut);
                   return (
-                    <td key={j} style={{ ...td, background: s ? COULEURS[s.matiere] || '#f3f4f6' : 'var(--surface)' }}>
+                    <td
+                      key={j}
+                      className={`timetable-cell${s ? '' : ' timetable-cell-empty'}`}
+                      style={{ ...td, background: s ? COULEURS[s.matiere] || '#f3f4f6' : 'var(--surface)' }}
+                    >
                       {s ? (
                         <>
                           <div style={{ fontWeight: 700 }}>{s.matiere}</div>
-                          <div style={{ fontSize: 12, color: '#4b5563' }}>
+                          <div className="timetable-teacher" style={{ fontSize: 12 }}>
                             {s.enseignant ? `${s.enseignant.prenom} ${s.enseignant.nom}` : ''}
                             {s.salle ? ` • ${s.salle}` : ''}
                           </div>
@@ -119,7 +140,7 @@ export function ClassesEmploi() {
 
   return (
     <Section titre="Classes et emplois du temps">
-      {erreur && <p style={{ color: '#b91c1c' }}>{erreur}</p>}
+      {erreur && <p style={{ color: 'var(--status-danger)' }}>{erreur}</p>}
       <div style={{ marginBottom: 16 }}>
         <label style={{ marginRight: 8 }}>Choisir une classe :</label>
         <select style={select} value={classeId} onChange={(e) => setClasseId(e.target.value)}>
@@ -148,107 +169,173 @@ export function EspaceFamille({ role }) {
       .catch((e) => setErreur(e.response?.data?.error || 'Impossible de charger votre espace famille'));
   }, []);
 
-  if (erreur) return <p style={{ color: '#b91c1c' }}>{erreur}</p>;
+  if (erreur) return <p style={{ color: 'var(--status-danger)' }}>{erreur}</p>;
   if (!enfants) return <p>Chargement...</p>;
   if (enfants.length === 0) return <p>Aucun élève rattaché à ce compte.</p>;
 
   const e = enfants[index] || enfants[0];
   const ongletsDispo = [['emploi', 'Emploi du temps'], ['notes', 'Notes'], ['absences', 'Absences'], ['paiements', 'Paiements']];
   const visibles = role === 'ELEVE' ? ongletsDispo.filter(([k]) => k !== 'paiements') : ongletsDispo;
+  const absencesNonJustifiees = e.absences.filter((absence) => !absence.justifiee).length;
 
   return (
     <Section titre={role === 'PARENT' ? 'Suivi de mes enfants' : 'Mon espace élève'}>
-      {role === 'PARENT' && enfants.length > 1 && (
-        <div style={{ marginBottom: 16 }}>
-          <label style={{ marginRight: 8 }}>Enfant :</label>
-          <select style={select} value={index} onChange={(ev) => setIndex(Number(ev.target.value))}>
-            {enfants.map((x, i) => <option key={x.id} value={i}>{x.prenom} {x.nom} – {x.classe?.nom}</option>)}
-          </select>
-        </div>
-      )}
-
-      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
-        <Kpi titre="Élève" valeur={`${e.prenom} ${e.nom}`} />
-        <Kpi titre="Classe" valeur={e.classe?.nom || 'N/A'} />
-        <Kpi titre="Moyenne générale" valeur={e.moyenne !== null ? `${e.moyenne}/20` : 'N/A'} couleur={e.moyenne !== null && e.moyenne < 10 ? '#b91c1c' : '#047857'} />
-        <Kpi titre="Absences" valeur={e.absences.length} couleur="#b45309" />
-      </div>
-
-      <nav style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-        {visibles.map(([k, label]) => (
-          <button key={k} onClick={() => setOnglet(k)}
-            style={{ ...bouton, background: onglet === k ? '#2563eb' : 'white', color: onglet === k ? 'white' : '#2563eb', border: '1px solid #2563eb' }}>
-            {label}
+      <div className="student-report">
+        <div className="student-report-actions print-hide">
+          <button type="button" className="print-button" onClick={() => window.print()}>
+            Imprimer / Exporter PDF
           </button>
-        ))}
-      </nav>
+        </div>
 
-      {onglet === 'emploi' && <Timetable classeId={e.classeId} />}
+        {role === 'PARENT' && enfants.length > 1 && (
+          <div className="print-hide" style={{ marginBottom: 16 }}>
+            <label style={{ marginRight: 8 }}>Enfant :</label>
+            <select style={select} value={index} onChange={(ev) => setIndex(Number(ev.target.value))}>
+              {enfants.map((x, i) => <option key={x.id} value={i}>{x.prenom} {x.nom} – {x.classe?.nom}</option>)}
+            </select>
+          </div>
+        )}
 
-      {onglet === 'notes' && (
-        <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--surface)' }}>
-          <thead><tr><th style={th}>Matière</th><th style={th}>Note /20</th><th style={th}>Coefficient</th></tr></thead>
-          <tbody>
-            {e.notes.map((n) => (
-              <tr key={n.id}>
-                <td style={td}>{n.matiere}</td>
-                <td style={{ ...td, fontWeight: 700, color: n.valeur < 10 ? '#b91c1c' : '#047857' }}>{n.valeur}</td>
-                <td style={td}>{n.coefficient}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+        <div className="student-report-summary">
+          <Kpi titre="Élève" valeur={`${e.prenom} ${e.nom}`} />
+          <Kpi titre="Classe" valeur={e.classe?.nom || 'N/A'} />
+          <Kpi
+            titre="Moyenne générale pondérée"
+            valeur={e.moyenne !== null ? `${Number(e.moyenne).toFixed(2)}/20` : 'Aucune note'}
+            couleur={e.moyenne === null ? 'var(--text-muted)' : e.moyenne < 10 ? 'var(--status-danger)' : 'var(--status-success)'}
+          />
+          <Kpi titre="Absences" valeur={e.absences.length} couleur="var(--status-warning)" />
+          <Kpi titre="Non justifiées" valeur={absencesNonJustifiees} couleur="var(--status-danger)" />
+        </div>
 
-      {onglet === 'absences' && (
-        e.absences.length === 0 ? <p>Aucune absence enregistrée.</p> : (
-          <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--surface)' }}>
-            <thead><tr><th style={th}>Date</th><th style={th}>Statut</th></tr></thead>
-            <tbody>
-              {e.absences.map((a) => (
-                <tr key={a.id}>
-                  <td style={td}>{formatDate(a.date)}</td>
-                  <td style={{ ...td, color: a.justifiee ? '#047857' : '#b91c1c' }}>{a.justifiee ? 'Justifiée' : 'Non justifiée'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )
-      )}
+        <nav className="student-report-tabs print-hide" style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+          {visibles.map(([k, label]) => (
+            <button key={k} onClick={() => setOnglet(k)}
+              style={{ ...bouton, background: onglet === k ? 'var(--accent)' : 'var(--surface)', color: onglet === k ? '#fff' : 'var(--accent)', border: '1px solid var(--accent)' }}>
+              {label}
+            </button>
+          ))}
+        </nav>
 
-      {onglet === 'paiements' && (
-        <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--surface)' }}>
-          <thead><tr><th style={th}>Total</th><th style={th}>Payé</th><th style={th}>Reste</th><th style={th}>Statut</th><th style={th}>Mode</th><th style={th}>Date</th></tr></thead>
-          <tbody>
-            {e.paiements.map((p) => (
-              <tr key={p.id}>
-                <td style={td}>{p.montantTotal} TND</td>
-                <td style={td}>{p.montantPaye} TND</td>
-                <td style={td}>{p.montantTotal - p.montantPaye} TND</td>
-                <td style={td}>{p.statut}</td>
-                <td style={td}>{p.modePaiement || '—'}</td>
-                <td style={td}>{formatDate(p.datePaiement)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+        {onglet === 'emploi' && <Timetable classeId={e.classeId} />}
+
+        {onglet === 'notes' && (
+          <>
+            <h3>Bulletin de notes</h3>
+            {e.notes.length === 0 ? <p>Aucune note n’a encore été enregistrée.</p> : (
+              <div className="student-report-table">
+                <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--surface)' }}>
+                  <thead>
+                    <tr>
+                      <th style={th}>Matière</th>
+                      <th style={th}>Note /20</th>
+                      <th style={th}>Coefficient</th>
+                      <th style={th}>Évaluation</th>
+                      <th style={th}>Date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {e.notes.map((n) => (
+                      <tr key={n.id}>
+                        <td style={td}>{n.matiere}</td>
+                        <td className={Number(n.valeur) < 10 ? 'grade-recovery' : 'grade-success'} style={{ ...td, fontWeight: 700 }}>
+                          {Number(n.valeur).toFixed(2)}
+                        </td>
+                        <td style={td}>{n.coefficient}</td>
+                        <td style={td}>{n.typeEvaluation || 'Devoir'}</td>
+                        <td style={td}>{formatDate(n.date)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
+        )}
+
+        {onglet === 'absences' && (
+          <>
+            <h3>Historique des absences</h3>
+            {e.absences.length === 0 ? <p>Aucune absence enregistrée.</p> : (
+              <div className="student-report-table">
+                <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--surface)' }}>
+                  <thead>
+                    <tr>
+                      <th style={th}>Date</th>
+                      <th style={th}>Matière</th>
+                      <th style={th}>Statut</th>
+                      <th style={th}>Motif</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {e.absences.map((a) => (
+                      <tr key={a.id}>
+                        <td style={td}>{formatDate(a.date)}</td>
+                        <td style={td}>{a.matiere || '—'}</td>
+                        <td className={a.justifiee ? 'grade-success' : 'grade-recovery'} style={{ ...td, fontWeight: 650 }}>
+                          {a.justifiee ? 'Justifiée' : 'Non justifiée'}
+                        </td>
+                        <td style={td}>{a.motif || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
+        )}
+
+        {onglet === 'paiements' && (
+          <div className="student-report-table">
+            <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--surface)' }}>
+              <thead><tr><th style={th}>Total</th><th style={th}>Payé</th><th style={th}>Reste</th><th style={th}>Statut</th><th style={th}>Mode</th><th style={th}>Date</th></tr></thead>
+              <tbody>
+                {e.paiements.map((p) => (
+                  <tr key={p.id}>
+                    <td style={td}>{p.montantTotal} TND</td>
+                    <td style={td}>{p.montantPaye} TND</td>
+                    <td style={td}>{p.montantTotal - p.montantPaye} TND</td>
+                    <td style={td}>{p.statut}</td>
+                    <td style={td}>{p.modePaiement || '—'}</td>
+                    <td style={td}>{formatDate(p.datePaiement)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </Section>
   );
 }
 
 // ---------- Paiements détaillés (direction / comptabilité) ----------
-const couleurStatut = { PAYE: '#047857', PARTIEL: '#b45309', IMPAYE: '#b91c1c' };
+const couleurStatut = {
+  PAYE: 'var(--status-success)',
+  PARTIEL: 'var(--status-warning)',
+  IMPAYE: 'var(--status-danger)'
+};
 
 export function Paiements() {
   const [liste, setListe] = useState(null);
+  const [erreur, setErreur] = useState('');
   const [classe, setClasse] = useState('TOUTES');
   const [statut, setStatut] = useState('TOUS');
 
   useEffect(() => {
-    API.get('/paiements').then((r) => setListe(r.data)).catch(() => setListe([]));
+    let active = true;
+    API.get('/paiements')
+      .then((r) => {
+        if (!Array.isArray(r.data)) throw new Error('Réponse invalide du serveur pour les paiements.');
+        if (active) setListe(r.data);
+      })
+      .catch((e) => {
+        if (active) setErreur(e.response?.data?.error || e.message || 'Impossible de charger les paiements');
+      });
+    return () => { active = false; };
   }, []);
 
+  if (erreur) return <p style={{ color: 'var(--status-danger)' }}>{erreur}</p>;
   if (!liste) return <p>Chargement...</p>;
 
   const classes = [...new Set(liste.map((p) => p.classe))];
@@ -262,8 +349,8 @@ export function Paiements() {
     <Section titre="Paiements des élèves">
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
         <Kpi titre="Attendu" valeur={`${attendu} TND`} />
-        <Kpi titre="Encaissé" valeur={`${encaisse} TND`} couleur="#047857" />
-        <Kpi titre="Reste à payer" valeur={`${attendu - encaisse} TND`} couleur="#b91c1c" />
+        <Kpi titre="Encaissé" valeur={`${encaisse} TND`} couleur="var(--status-success)" />
+        <Kpi titre="Reste à payer" valeur={`${attendu - encaisse} TND`} couleur="var(--status-danger)" />
         <Kpi titre="Recouvrement" valeur={`${attendu > 0 ? ((encaisse / attendu) * 100).toFixed(1) : 0}%`} />
       </div>
 
@@ -298,7 +385,7 @@ export function Paiements() {
                 <td style={td}>{p.montantTotal} TND</td>
                 <td style={td}>{p.montantPaye} TND</td>
                 <td style={td}>{p.reste} TND</td>
-                <td style={{ ...td, fontWeight: 700, color: couleurStatut[p.statut] || '#111827' }}>{p.statut}</td>
+                <td style={{ ...td, fontWeight: 700, color: couleurStatut[p.statut] || 'var(--text-primary)' }}>{p.statut}</td>
                 <td style={td}>{p.modePaiement || '—'}</td>
                 <td style={td}>{formatDate(p.datePaiement)}</td>
               </tr>
@@ -338,7 +425,7 @@ export function Annonces({ role }) {
 
   return (
     <Section titre="Annonces de l'établissement">
-      {erreur && <p style={{ color: '#b91c1c' }}>{erreur}</p>}
+      {erreur && <p style={{ color: 'var(--status-danger)' }}>{erreur}</p>}
       {peutPublier && (
         <form onSubmit={publier} style={{ ...card, marginBottom: 16, display: 'grid', gap: 8 }}>
           <strong>Publier une annonce</strong>
@@ -368,45 +455,175 @@ export function Annonces({ role }) {
 }
 
 // ---------- Liste des élèves ----------
-export function Eleves() {
+export function Eleves({ role, onElevesChanged }) {
   const [classes, setClasses] = useState([]);
   const [classeId, setClasseId] = useState('');
   const [classesErreur, setClassesErreur] = useState('');
   const [resultat, setResultat] = useState(null);
+  const [actualisation, setActualisation] = useState(0);
+  const [formulaire, setFormulaire] = useState({ prenom: '', nom: '', classeId: '' });
+  const [ajoutEnCours, setAjoutEnCours] = useState(false);
+  const [suppressionId, setSuppressionId] = useState(null);
+  const [erreurMutation, setErreurMutation] = useState('');
+  const [messageMutation, setMessageMutation] = useState('');
+  const [compteCree, setCompteCree] = useState(null);
+  const peutGerer = ['DIRECTEUR', 'ADMIN_ECOLE'].includes(role);
 
   useEffect(() => {
     let active = true;
     API.get('/classes')
       .then((r) => {
-        if (active) setClasses(r.data);
+        if (active) {
+          setClasses(r.data);
+          setClassesErreur('');
+        }
       })
       .catch((e) => {
         if (active) setClassesErreur(e.response?.data?.error || 'Impossible de charger les classes');
       });
     return () => { active = false; };
-  }, []);
+  }, [actualisation]);
 
   useEffect(() => {
     let active = true;
     API.get('/eleves', { params: classeId ? { classeId } : {} })
       .then((r) => {
-        if (active) setResultat({ classeId, eleves: r.data });
+        if (active) setResultat({ classeId, actualisation, eleves: r.data });
       })
       .catch((e) => {
         if (active) setResultat({
           classeId,
+          actualisation,
           erreur: e.response?.data?.error || 'Impossible de charger les élèves'
         });
       });
     return () => { active = false; };
-  }, [classeId]);
+  }, [classeId, actualisation]);
 
-  const resultatCourant = resultat?.classeId === classeId ? resultat : null;
+  const resultatCourant = resultat?.classeId === classeId && resultat?.actualisation === actualisation
+    ? resultat
+    : null;
   const eleves = resultatCourant?.eleves;
+  const prenomEmail = slugEmail(formulaire.prenom);
+  const nomEmail = slugEmail(formulaire.nom);
+  const emailApercu = prenomEmail && nomEmail
+    ? `etu.${prenomEmail}.${nomEmail}@edu.tn`
+    : '';
+
+  const actualiserApresMutation = async () => {
+    setResultat(null);
+    setActualisation((version) => version + 1);
+    await onElevesChanged?.();
+  };
+
+  const ajouterEleve = async (event) => {
+    event.preventDefault();
+    setErreurMutation('');
+    setMessageMutation('');
+    setCompteCree(null);
+    setAjoutEnCours(true);
+    try {
+      const response = await API.post('/eleves', {
+        prenom: formulaire.prenom.trim(),
+        nom: formulaire.nom.trim(),
+        classeId: Number(formulaire.classeId)
+      });
+      setCompteCree(response.data.compte);
+      setMessageMutation('Élève ajouté.');
+      setFormulaire({ prenom: '', nom: '', classeId: '' });
+      setClasseId('');
+      await actualiserApresMutation();
+    } catch (error) {
+      setErreurMutation(messageErreurApi(error, 'Impossible d’ajouter cet élève'));
+    } finally {
+      setAjoutEnCours(false);
+    }
+  };
+
+  const supprimerEleve = async (eleve) => {
+    const confirme = window.confirm(
+      `Supprimer ${eleve.prenom} ${eleve.nom} ? Ses notes, absences, paiements et son compte élève seront également supprimés.`
+    );
+    if (!confirme) return;
+
+    setErreurMutation('');
+    setMessageMutation('');
+    setCompteCree(null);
+    setSuppressionId(eleve.id);
+    try {
+      await API.delete(`/eleves/${eleve.id}`);
+      setMessageMutation('Élève supprimé.');
+      await actualiserApresMutation();
+    } catch (error) {
+      setErreurMutation(messageErreurApi(error, 'Impossible de supprimer cet élève'));
+    } finally {
+      setSuppressionId(null);
+    }
+  };
 
   return (
     <Section titre="Élèves">
-      {classesErreur && <p style={{ color: '#b91c1c' }}>{classesErreur}</p>}
+      {classesErreur && <p style={{ color: 'var(--status-danger)' }}>{classesErreur}</p>}
+      {erreurMutation && <p role="alert" style={{ color: 'var(--status-danger)' }}>{erreurMutation}</p>}
+      {messageMutation && <p role="status" style={{ color: 'var(--status-success)' }}>{messageMutation}</p>}
+      {compteCree && (
+        <div role="status" style={{ ...card, marginBottom: 16 }}>
+          <strong>Identifiants du nouvel élève</strong>
+          <div>Email : {compteCree.email}</div>
+          <div>Mot de passe initial : {compteCree.motDePasseInitial}</div>
+        </div>
+      )}
+      {peutGerer && (
+        <form
+          onSubmit={ajouterEleve}
+          style={{ ...card, display: 'grid', gap: 10, marginBottom: 20 }}
+        >
+          <h3 style={{ margin: 0 }}>Ajouter un étudiant</h3>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+            <input
+              style={select}
+              placeholder="Prénom"
+              autoComplete="given-name"
+              value={formulaire.prenom}
+              onChange={(event) => setFormulaire({ ...formulaire, prenom: event.target.value })}
+              required
+            />
+            <input
+              style={select}
+              placeholder="Nom"
+              autoComplete="family-name"
+              value={formulaire.nom}
+              onChange={(event) => setFormulaire({ ...formulaire, nom: event.target.value })}
+              required
+            />
+            <select
+              style={select}
+              value={formulaire.classeId}
+              onChange={(event) => setFormulaire({ ...formulaire, classeId: event.target.value })}
+              required
+              disabled={classes.length === 0}
+              aria-label="Classe du nouvel élève"
+            >
+              <option value="">Choisir une classe</option>
+              {classes.map((classe) => (
+                <option key={classe.id} value={classe.id}>
+                  {classe.nom} ({classe._count.eleves}/{classe.capaciteMax})
+                </option>
+              ))}
+            </select>
+          </div>
+          <p style={{ margin: 0, color: 'var(--text-muted)' }}>
+            Email proposé : <strong>{emailApercu || 'etu.prenom.nom@edu.tn'}</strong>
+            {' · '}Mot de passe initial : <strong>Demo2026!</strong>
+            {' · '}En cas de doublon, un suffixe sera ajouté à l’email.
+          </p>
+          <div>
+            <button type="submit" style={bouton} disabled={ajoutEnCours || classes.length === 0}>
+              {ajoutEnCours ? 'Ajout en cours…' : 'Ajouter un étudiant'}
+            </button>
+          </div>
+        </form>
+      )}
       <div style={{ marginBottom: 16 }}>
         <label htmlFor="filtre-classe" style={{ marginRight: 8 }}>Filtrer par classe :</label>
         <select id="filtre-classe" style={select} value={classeId} onChange={(e) => setClasseId(e.target.value)}>
@@ -414,23 +631,52 @@ export function Eleves() {
           {classes.map((classe) => <option key={classe.id} value={classe.id}>{classe.nom}</option>)}
         </select>
       </div>
-      {resultatCourant?.erreur && <p style={{ color: '#b91c1c' }}>{resultatCourant.erreur}</p>}
+      {resultatCourant?.erreur && <p style={{ color: 'var(--status-danger)' }}>{resultatCourant.erreur}</p>}
       {!resultatCourant && <p>Chargement des élèves...</p>}
-      {eleves?.length === 0 && <p>Aucun élève dans cette classe.</p>}
+      {eleves?.length === 0 && <p>Aucun élève pour ce filtre.</p>}
       {eleves?.length > 0 && (
-        <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--surface)' }}>
-          <thead><tr><th style={th}>Matricule</th><th style={th}>Nom & Prénom</th><th style={th}>Classe</th><th style={th}>Parent</th></tr></thead>
-          <tbody>
-            {eleves.map((el) => (
-              <tr key={el.id}>
-                <td style={td}>{el.matricule}</td>
-                <td style={td}>{el.nom} {el.prenom}</td>
-                <td style={td}>{el.classe?.nom || 'N/A'}</td>
-                <td style={td}>{el.parent ? `${el.parent.prenom} ${el.parent.nom}` : '—'}</td>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--surface)' }}>
+            <thead>
+              <tr>
+                <th style={th}>Matricule</th>
+                <th style={th}>Nom & Prénom</th>
+                <th style={th}>Classe</th>
+                <th style={th}>Parent</th>
+                {peutGerer && <th style={th}>Actions</th>}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {eleves.map((el) => (
+                <tr key={el.id}>
+                  <td style={td}>{el.matricule}</td>
+                  <td style={td}>{el.nom} {el.prenom}</td>
+                  <td style={td}>{el.classe?.nom || 'N/A'}</td>
+                  <td style={td}>{el.parent ? `${el.parent.prenom} ${el.parent.nom}` : '—'}</td>
+                  {peutGerer && (
+                    <td style={td}>
+                      <button
+                        type="button"
+                        onClick={() => supprimerEleve(el)}
+                        disabled={suppressionId !== null}
+                        style={{
+                          background: '#dc2626',
+                          color: '#fff',
+                          border: 0,
+                          borderRadius: 4,
+                          padding: '0.35rem 0.65rem',
+                          cursor: suppressionId !== null ? 'not-allowed' : 'pointer'
+                        }}
+                      >
+                        {suppressionId === el.id ? 'Suppression…' : 'Supprimer'}
+                      </button>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </Section>
   );
@@ -498,8 +744,8 @@ export function Ecoles() {
 
   return (
     <Section titre="Gestion des établissements">
-      {erreur && <p style={{ color: '#b91c1c' }}>{erreur}</p>}
-      {message && <p style={{ color: '#047857' }}>{message}</p>}
+      {erreur && <p style={{ color: 'var(--status-danger)' }}>{erreur}</p>}
+      {message && <p style={{ color: 'var(--status-success)' }}>{message}</p>}
 
       <form onSubmit={creerEcole} className="school-form" style={{ ...card, marginBottom: 20, display: 'grid', gap: 10 }}>
         <h3 style={{ margin: 0 }}>Ajouter une école</h3>

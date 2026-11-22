@@ -11,38 +11,52 @@ export default function Login({ onLoginSuccess, darkMode, onToggleTheme }) {
   const [ecolesError, setEcolesError] = useState('');
   const [loadingEcoles, setLoadingEcoles] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [rechargementEcoles, setRechargementEcoles] = useState(0);
 
   useEffect(() => {
     let active = true;
     API.get('/ecoles/selection')
       .then((response) => {
         if (!active) return;
+        if (!Array.isArray(response.data)) {
+          throw new Error('Réponse invalide du serveur pour la liste des établissements.');
+        }
         setEcoles(response.data);
-        if (response.data.length === 1) setSchoolId(String(response.data[0].id));
+        setSchoolId(response.data.length === 1 ? String(response.data[0].id) : '');
       })
       .catch((err) => {
-        if (active) setEcolesError(err.response?.data?.error || 'Impossible de charger les établissements');
+        if (!active) return;
+        setEcoles([]);
+        setSchoolId('');
+        setEcolesError(err.response?.data?.error || err.message || 'Impossible de charger les établissements');
       })
       .finally(() => {
         if (active) setLoadingEcoles(false);
       });
     return () => { active = false; };
-  }, []);
+  }, [rechargementEcoles]);
 
   const ecoleSelectionnee = ecoles.find((ecole) => String(ecole.id) === schoolId);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    if (!schoolId) {
+      setError('Choisissez un établissement avant de vous connecter.');
+      return;
+    }
     setLoading(true);
 
     try {
       const response = await API.post('/auth/login', { email: email.trim(), password, schoolId: Number(schoolId) });
+      if (typeof response.data?.token !== 'string' || !response.data.user) {
+        throw new Error('Réponse invalide du serveur lors de la connexion.');
+      }
       localStorage.setItem('token', response.data.token);
       localStorage.setItem('user', JSON.stringify(response.data.user));
       onLoginSuccess(response.data.user);
     } catch (err) {
-      setError(err.response?.data?.error || 'Erreur de connexion au serveur');
+      setError(err.response?.data?.error || err.message || 'Erreur de connexion au serveur');
     } finally {
       setLoading(false);
     }
@@ -51,9 +65,10 @@ export default function Login({ onLoginSuccess, darkMode, onToggleTheme }) {
   return (
     <main className={`login-page${darkMode ? ' theme-dark' : ''}`}>
       <header className="login-topbar">
-        <a className="brand-mark" href="/" aria-label="Portail Scolaire, accueil">
+        <a className="brand-mark" href="/" aria-label="Classly, accueil">
           <span className="brand-icon"><BookOpen size={21} /></span>
-          <span>Portail<span className="brand-light">Scolaire</span></span>
+          <span>Classly</span>
+          <span className="brand-badge">by Fedi</span>
         </a>
         <button className="theme-toggle" onClick={onToggleTheme} type="button" aria-label={darkMode ? 'Activer le mode clair' : 'Activer le mode sombre'}>
           {darkMode ? <Sun size={18} /> : <Moon size={18} />}
@@ -97,7 +112,21 @@ export default function Login({ onLoginSuccess, darkMode, onToggleTheme }) {
             </div>
           </div>
 
-          {ecolesError && <div className="alert alert-error" role="alert">{ecolesError}</div>}
+          {ecolesError && (
+            <div className="alert alert-error" role="alert">
+              <span>{ecolesError}</span>
+              <button type="button" onClick={() => {
+                setLoadingEcoles(true);
+                setEcolesError('');
+                setRechargementEcoles((tentative) => tentative + 1);
+              }}>
+                Réessayer
+              </button>
+            </div>
+          )}
+          {!loadingEcoles && !ecolesError && ecoles.length === 0 && (
+            <div className="alert alert-error" role="alert">Aucun établissement n’est disponible.</div>
+          )}
           {error && <div className="alert alert-error" role="alert">{error}</div>}
 
           <form onSubmit={handleSubmit}>
@@ -137,7 +166,7 @@ export default function Login({ onLoginSuccess, darkMode, onToggleTheme }) {
           <div className="secure-note"><LockKeyhole size={15} /> Accès sécurisé réservé aux membres de l’établissement</div>
         </section>
       </div>
-      <footer className="login-footer">© {new Date().getFullYear()} Portail Scolaire <span>•</span> Un espace pour apprendre et grandir</footer>
+      <footer className="login-footer">© {new Date().getFullYear()} Classly <span className="footer-credit">by Fedi</span> <span>•</span> Un espace pour apprendre et grandir</footer>
     </main>
   );
 }
